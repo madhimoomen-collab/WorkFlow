@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -13,7 +11,6 @@ namespace Domain.Models
 
         public float Version { get; set; }
 
-        // Navigation
         public ICollection<Node> Nodes { get; set; } = new List<Node>();
         public ICollection<WorkFlowInstance> Instances { get; set; } = new List<WorkFlowInstance>();
     }
@@ -25,19 +22,18 @@ namespace Domain.Models
         public string Name { get; set; } = string.Empty;
 
         [MaxLength(50)]
-        public string Type { get; set; } = string.Empty; // e.g., 'Start', 'Task', 'End'
+        public string Type { get; set; } = string.Empty;
 
         [MaxLength(500)]
         public string? Description { get; set; }
 
         [MaxLength(100)]
-        public string? RoleReq { get; set; } // Specific role required for this node
+        public string? RoleReq { get; set; }
 
         [ForeignKey("WorkFlowDefinition")]
         public Guid WorkFlowDefinitionId { get; set; }
         public WorkFlowDefinition WorkFlowDefinition { get; set; } = null!;
 
-        // Navigation for Graph Edges
         public ICollection<Edge> OutgoingEdges { get; set; } = new List<Edge>();
     }
 
@@ -47,14 +43,12 @@ namespace Domain.Models
         public string? Name { get; set; }
 
         [MaxLength(300)]
-        public string? Condition { get; set; } // Logic for traversing this edge
+        public string? Condition { get; set; }
 
-        // Source Node
         [ForeignKey("SourceNode")]
         public Guid NodeId { get; set; }
         public Node SourceNode { get; set; } = null!;
 
-        // Target Node
         [ForeignKey("TargetNode")]
         public Guid TargetId { get; set; }
         public Node TargetNode { get; set; } = null!;

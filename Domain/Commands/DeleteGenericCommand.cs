@@ -5,9 +5,9 @@ namespace Domain.Commands
 {
     public class DeleteGenericCommand<T> : IRequest<bool> where T : BaseEntity
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; }
 
-        public DeleteGenericCommand(int id)
+        public DeleteGenericCommand(Guid id)
         {
             Id = id;
         }

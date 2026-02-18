@@ -2,8 +2,6 @@
 using Domain.Commands;
 using Domain.Interface;
 using Domain.Models;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Domain.Handlers
 {
@@ -21,9 +19,7 @@ namespace Domain.Handlers
         {
             var result = await _repository.DeleteAsync(request.Id);
             if (result)
-            {
                 await _repository.SaveChangesAsync();
-            }
             return result;
         }
     }

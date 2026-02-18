@@ -6,9 +6,7 @@ namespace Data.Context
     public class ApplicationDbContext : DbContext
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-            : base(options)
-        {
-        }
+            : base(options) { }
 
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Role> Roles { get; set; } = null!;
@@ -22,31 +20,49 @@ namespace Data.Context
         {
             base.OnModelCreating(modelBuilder);
 
-            // Configure relationships and constraints here if needed
+            // UserRole → User
             modelBuilder.Entity<UserRole>()
                 .HasOne(ur => ur.User)
                 .WithMany(u => u.UserRoles)
                 .HasForeignKey(ur => ur.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // UserRole → Role
             modelBuilder.Entity<UserRole>()
                 .HasOne(ur => ur.Role)
                 .WithMany(r => r.UserRoles)
                 .HasForeignKey(ur => ur.RoleId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Node → WorkFlowDefinition
             modelBuilder.Entity<Node>()
                 .HasOne(n => n.WorkFlowDefinition)
                 .WithMany(w => w.Nodes)
                 .HasForeignKey(n => n.WorkFlowDefinitionId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Edge → SourceNode
+            modelBuilder.Entity<Edge>()
+                .HasOne(e => e.SourceNode)
+                .WithMany(n => n.OutgoingEdges)
+                .HasForeignKey(e => e.NodeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Edge → TargetNode (no collection on Node side to avoid cycle)
+            modelBuilder.Entity<Edge>()
+                .HasOne(e => e.TargetNode)
+                .WithMany()
+                .HasForeignKey(e => e.TargetId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // WorkFlowInstance → WorkFlowDefinition
             modelBuilder.Entity<WorkFlowInstance>()
                 .HasOne(wi => wi.WorkFlowDefinition)
                 .WithMany(w => w.Instances)
                 .HasForeignKey(wi => wi.WorkFlowDefinitionId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // WorkFlowInstance → CurrentNode
             modelBuilder.Entity<WorkFlowInstance>()
                 .HasOne(wi => wi.CurrentNode)
                 .WithMany()

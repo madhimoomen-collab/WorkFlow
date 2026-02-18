@@ -2,9 +2,6 @@
 using Domain.Commands;
 using Domain.Interface;
 using Domain.Models;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Domain.Handlers
 {
@@ -20,7 +17,7 @@ namespace Domain.Handlers
 
         public async Task<T> Handle(UpdateGenericCommand<T> request, CancellationToken cancellationToken)
         {
-            request.Entity.UpdatedDate = DateTime.Now;
+            request.Entity.UpdatedAt = DateTime.UtcNow;
             var result = await _repository.UpdateAsync(request.Entity);
             await _repository.SaveChangesAsync();
             return result;

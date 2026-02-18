@@ -2,8 +2,6 @@
 using Domain.Commands;
 using Domain.Interface;
 using Domain.Models;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Domain.Handlers
 {
