@@ -1,4 +1,5 @@
-﻿using Data.Context;
+﻿using System.Text;
+using Data.Context;
 using Data.Repositories;
 using Domain.Commands;
 using Domain.Handlers;
@@ -6,7 +7,9 @@ using Domain.Interface;
 using Domain.Models;
 using Domain.Queries;
 using MediatR;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,6 +57,24 @@ RegisterHandlers<WorkFlowDefinition>(builder.Services);
 RegisterHandlers<Node>(builder.Services);
 RegisterHandlers<Edge>(builder.Services);
 RegisterHandlers<WorkFlowInstance>(builder.Services);
+RegisterHandlers<WorkFlowInstanceHistory>(builder.Services);
+
+// ── JWT Authentication ────────────────────────────────────────────────────────
+var jwtSection = builder.Configuration.GetSection("Jwt");
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSection["Issuer"],
+            ValidAudience = jwtSection["Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"]!))
+        };
+    });
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
@@ -77,6 +98,7 @@ app.UseSwaggerUI(c =>
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
