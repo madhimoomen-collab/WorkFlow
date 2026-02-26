@@ -1,4 +1,6 @@
+using AutoMapper;
 using Domain.Commands;
+using Domain.DTOs;
 using Domain.Models;
 using Domain.Queries;
 using MediatR;
@@ -9,7 +11,44 @@ namespace API.Controllers
 {
     public class WorkFlowInstancesController : GenericController<WorkFlowInstance>
     {
-        public WorkFlowInstancesController(IMediator mediator) : base(mediator) { }
+        private readonly IMapper _mapper;
+
+        public WorkFlowInstancesController(IMediator mediator, IMapper mapper) : base(mediator)
+        {
+            _mapper = mapper;
+        }
+
+        [HttpGet]
+        public override async Task<IActionResult> GetAll()
+        {
+            var result = await _mediator.Send(new GetListGenericQuery<WorkFlowInstance>());
+            return Ok(_mapper.Map<IEnumerable<WorkFlowInstanceDto>>(result));
+        }
+
+        [HttpGet("{id:guid}")]
+        public override async Task<IActionResult> GetById(Guid id)
+        {
+            var result = await _mediator.Send(new GetGenericQuery<WorkFlowInstance>(id));
+            if (result is null) return NotFound(new { message = $"Record with id '{id}' not found." });
+            return Ok(_mapper.Map<WorkFlowInstanceDto>(result));
+        }
+
+        [HttpPost]
+        public override async Task<IActionResult> Create([FromBody] WorkFlowInstance entity)
+        {
+            entity.Id = Guid.NewGuid();
+            var result = await _mediator.Send(new AddGenericCommand<WorkFlowInstance>(entity));
+            var dto = _mapper.Map<WorkFlowInstanceDto>(result);
+            return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
+        }
+
+        [HttpPut("{id:guid}")]
+        public override async Task<IActionResult> Update(Guid id, [FromBody] WorkFlowInstance entity)
+        {
+            entity.Id = id;
+            var result = await _mediator.Send(new UpdateGenericCommand<WorkFlowInstance>(entity));
+            return Ok(_mapper.Map<WorkFlowInstanceDto>(result));
+        }
 
         /// <summary>Get all active (non-completed, non-cancelled) instances</summary>
         [HttpGet("active")]
@@ -20,7 +59,7 @@ namespace API.Controllers
                              && i.Status != "Completed"
                              && i.Status != "Cancelled"
             ));
-            return Ok(result);
+            return Ok(_mapper.Map<IEnumerable<WorkFlowInstanceDto>>(result));
         }
 
         /// <summary>Get the full transition history of an instance</summary>
@@ -32,7 +71,7 @@ namespace API.Controllers
                 includes: q => q.Include(h => h.FromNode).Include(h => h.ToNode),
                 orderBy: q => q.OrderBy(h => h.TransitionedAt)
             ));
-            return Ok(result);
+            return Ok(_mapper.Map<IEnumerable<WorkFlowInstanceHistoryDto>>(result));
         }
 
         /// <summary>Start a pending workflow instance</summary>
@@ -55,7 +94,7 @@ namespace API.Controllers
             instance.NodeId = startNode.Id;
             instance.Status = "InProgress";
             var result = await _mediator.Send(new UpdateGenericCommand<WorkFlowInstance>(instance));
-            return Ok(result);
+            return Ok(_mapper.Map<WorkFlowInstanceDto>(result));
         }
 
         /// <summary>Advance an in-progress instance along an edge</summary>
@@ -92,7 +131,7 @@ namespace API.Controllers
             }
 
             var result = await _mediator.Send(new UpdateGenericCommand<WorkFlowInstance>(instance));
-            return Ok(result);
+            return Ok(_mapper.Map<WorkFlowInstanceDto>(result));
         }
 
         /// <summary>Cancel a pending or in-progress instance</summary>
@@ -106,7 +145,7 @@ namespace API.Controllers
 
             instance.Status = "Cancelled";
             var result = await _mediator.Send(new UpdateGenericCommand<WorkFlowInstance>(instance));
-            return Ok(result);
+            return Ok(_mapper.Map<WorkFlowInstanceDto>(result));
         }
     }
 

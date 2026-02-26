@@ -2,7 +2,9 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using AutoMapper;
 using Domain.Commands;
+using Domain.DTOs;
 using Domain.Models;
 using Domain.Queries;
 using MediatR;
@@ -17,11 +19,13 @@ namespace API.Controllers
     {
         private readonly IMediator _mediator;
         private readonly IConfiguration _configuration;
+        private readonly IMapper _mapper;
 
-        public AuthController(IMediator mediator, IConfiguration configuration)
+        public AuthController(IMediator mediator, IConfiguration configuration, IMapper mapper)
         {
             _mediator = mediator;
             _configuration = configuration;
+            _mapper = mapper;
         }
 
         /// <summary>Register a new user</summary>
@@ -43,7 +47,8 @@ namespace API.Controllers
             };
 
             var result = await _mediator.Send(new AddGenericCommand<User>(user));
-            return CreatedAtAction(null, new { id = result.Id }, new { result.Id, result.FullName, result.Email });
+            var dto = _mapper.Map<UserDto>(result);
+            return CreatedAtAction(null, new { id = dto.Id }, dto);
         }
 
         /// <summary>Login and receive a JWT token</summary>

@@ -40,6 +40,9 @@ builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepositor
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(User).Assembly));
 
+// ── AutoMapper ────────────────────────────────────────────────────────────────
+builder.Services.AddAutoMapper(typeof(User).Assembly);
+
 // Helper to register all 5 CRUD handlers for one entity type
 static void RegisterHandlers<T>(IServiceCollection services) where T : BaseEntity
 {

@@ -1,4 +1,6 @@
+using AutoMapper;
 using Domain.Commands;
+using Domain.DTOs;
 using Domain.Models;
 using Domain.Queries;
 using MediatR;
@@ -9,7 +11,44 @@ namespace API.Controllers
 {
     public class WorkFlowDefinitionsController : GenericController<WorkFlowDefinition>
     {
-        public WorkFlowDefinitionsController(IMediator mediator) : base(mediator) { }
+        private readonly IMapper _mapper;
+
+        public WorkFlowDefinitionsController(IMediator mediator, IMapper mapper) : base(mediator)
+        {
+            _mapper = mapper;
+        }
+
+        [HttpGet]
+        public override async Task<IActionResult> GetAll()
+        {
+            var result = await _mediator.Send(new GetListGenericQuery<WorkFlowDefinition>());
+            return Ok(_mapper.Map<IEnumerable<WorkFlowDefinitionDto>>(result));
+        }
+
+        [HttpGet("{id:guid}")]
+        public override async Task<IActionResult> GetById(Guid id)
+        {
+            var result = await _mediator.Send(new GetGenericQuery<WorkFlowDefinition>(id));
+            if (result is null) return NotFound(new { message = $"Record with id '{id}' not found." });
+            return Ok(_mapper.Map<WorkFlowDefinitionDto>(result));
+        }
+
+        [HttpPost]
+        public override async Task<IActionResult> Create([FromBody] WorkFlowDefinition entity)
+        {
+            entity.Id = Guid.NewGuid();
+            var result = await _mediator.Send(new AddGenericCommand<WorkFlowDefinition>(entity));
+            var dto = _mapper.Map<WorkFlowDefinitionDto>(result);
+            return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
+        }
+
+        [HttpPut("{id:guid}")]
+        public override async Task<IActionResult> Update(Guid id, [FromBody] WorkFlowDefinition entity)
+        {
+            entity.Id = id;
+            var result = await _mediator.Send(new UpdateGenericCommand<WorkFlowDefinition>(entity));
+            return Ok(_mapper.Map<WorkFlowDefinitionDto>(result));
+        }
 
         /// <summary>Get a workflow definition with its full graph (nodes + edges)</summary>
         [HttpGet("{id:guid}/graph")]
@@ -20,7 +59,8 @@ namespace API.Controllers
                 includes: q => q.Include(w => w.Nodes)
                                 .ThenInclude(n => n.OutgoingEdges)
             ));
-            return result is null ? NotFound() : Ok(result);
+            if (result is null) return NotFound();
+            return Ok(_mapper.Map<WorkFlowDefinitionGraphDto>(result));
         }
 
         /// <summary>Get all nodes for a workflow definition</summary>
@@ -30,7 +70,7 @@ namespace API.Controllers
             var result = await _mediator.Send(new GetListGenericQuery<Node>(
                 condition: n => n.WorkFlowDefinitionId == id && !n.IsDeleted
             ));
-            return Ok(result);
+            return Ok(_mapper.Map<IEnumerable<NodeDto>>(result));
         }
 
         /// <summary>Deep-clone a workflow definition with all nodes and edges</summary>
@@ -82,7 +122,8 @@ namespace API.Controllers
                 }
             }
 
-            return CreatedAtAction(nameof(GetById), new { id = newDefinition.Id }, newDefinition);
+            var dto = _mapper.Map<WorkFlowDefinitionDto>(newDefinition);
+            return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
         }
     }
 }
