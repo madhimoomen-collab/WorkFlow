@@ -1,14 +1,6 @@
 ﻿using System.Text;
-using Data.Context;
-using Data.Repositories;
-using Domain.Commands;
-using Domain.Handlers;
-using Domain.Interface;
-using Domain.Models;
-using Domain.Queries;
-using MediatR;
+using Infra;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,41 +18,8 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// ── Database ─────────────────────────────────────────────────────────────────
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        b => b.MigrationsAssembly("Data")
-    ));
-
-// ── Generic Repository ────────────────────────────────────────────────────────
-builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
-
-// ── MediatR ───────────────────────────────────────────────────────────────────
-builder.Services.AddMediatR(cfg =>
-    cfg.RegisterServicesFromAssembly(typeof(User).Assembly));
-
-// ── AutoMapper ────────────────────────────────────────────────────────────────
-builder.Services.AddAutoMapper(typeof(User).Assembly);
-
-// Helper to register all 5 CRUD handlers for one entity type
-static void RegisterHandlers<T>(IServiceCollection services) where T : BaseEntity
-{
-    services.AddScoped<IRequestHandler<GetListGenericQuery<T>, IEnumerable<T>>, GetListGenericHandler<T>>();
-    services.AddScoped<IRequestHandler<GetGenericQuery<T>, T?>, GetGenericHandler<T>>();
-    services.AddScoped<IRequestHandler<AddGenericCommand<T>, T>, AddGenericHandler<T>>();
-    services.AddScoped<IRequestHandler<UpdateGenericCommand<T>, T>, UpdateGenericHandler<T>>();
-    services.AddScoped<IRequestHandler<DeleteGenericCommand<T>, bool>, DeleteGenericHandler<T>>();
-}
-
-RegisterHandlers<User>(builder.Services);
-RegisterHandlers<Role>(builder.Services);
-RegisterHandlers<UserRole>(builder.Services);
-RegisterHandlers<WorkFlowDefinition>(builder.Services);
-RegisterHandlers<Node>(builder.Services);
-RegisterHandlers<Edge>(builder.Services);
-RegisterHandlers<WorkFlowInstance>(builder.Services);
-RegisterHandlers<WorkFlowInstanceHistory>(builder.Services);
+// ── Infrastructure (Database, Repository, MediatR, AutoMapper, CRUD Handlers) ─
+builder.Services.AddInfrastructure(builder.Configuration);
 
 // ── JWT Authentication ────────────────────────────────────────────────────────
 var jwtSection = builder.Configuration.GetSection("Jwt");
