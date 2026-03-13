@@ -1,6 +1,7 @@
 using AutoMapper;
 using Domain.Commands;
 using Domain.DTOs;
+using Domain.DTOs.Requests;
 using Domain.Models;
 using Domain.Queries;
 using MediatR;
@@ -42,10 +43,12 @@ namespace API.Controllers
         }
 
         [HttpPut("{id:guid}")]
-        public override async Task<IActionResult> Update(Guid id, [FromBody] Role entity)
+        public new async Task<IActionResult> Update(Guid id, [FromBody] UpdateRoleRequest request)
         {
-            entity.Id = id;
-            var result = await _mediator.Send(new UpdateGenericCommand<Role>(entity));
+            var existing = await _mediator.Send(new GetGenericQuery<Role>(id));
+            if (existing is null) return NotFound();
+            existing.RoleName = request.RoleName;
+            var result = await _mediator.Send(new UpdateGenericCommand<Role>(existing));
             return Ok(_mapper.Map<RoleDto>(result));
         }
     }

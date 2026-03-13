@@ -1,6 +1,7 @@
 using AutoMapper;
 using Domain.Commands;
 using Domain.DTOs;
+using Domain.DTOs.Requests;
 using Domain.Models;
 using Domain.Queries;
 using MediatR;
@@ -43,10 +44,16 @@ namespace API.Controllers
         }
 
         [HttpPut("{id:guid}")]
-        public override async Task<IActionResult> Update(Guid id, [FromBody] Node entity)
+        public new async Task<IActionResult> Update(Guid id, [FromBody] UpdateNodeRequest request)
         {
-            entity.Id = id;
-            var result = await _mediator.Send(new UpdateGenericCommand<Node>(entity));
+            var existing = await _mediator.Send(new GetGenericQuery<Node>(id));
+            if (existing is null) return NotFound();
+            existing.Name = request.Name;
+            existing.Type = request.Type;
+            existing.Description = request.Description;
+            existing.RoleReq = request.RoleReq;
+            // WorkFlowDefinitionId is intentionally NOT updatable
+            var result = await _mediator.Send(new UpdateGenericCommand<Node>(existing));
             return Ok(_mapper.Map<NodeDto>(result));
         }
 

@@ -1,6 +1,7 @@
 using AutoMapper;
 using Domain.Commands;
 using Domain.DTOs;
+using Domain.DTOs.Requests;
 using Domain.Models;
 using Domain.Queries;
 using MediatR;
@@ -42,10 +43,20 @@ namespace API.Controllers
         }
 
         [HttpPut("{id:guid}")]
-        public override async Task<IActionResult> Update(Guid id, [FromBody] Edge entity)
+        public new async Task<IActionResult> Update(Guid id, [FromBody] UpdateEdgeRequest request)
         {
-            entity.Id = id;
-            var result = await _mediator.Send(new UpdateGenericCommand<Edge>(entity));
+            var existing = await _mediator.Send(new GetGenericQuery<Edge>(id));
+            if (existing is null) return NotFound();
+
+            // Validate that the new TargetId exists
+            var targetNode = await _mediator.Send(new GetGenericQuery<Node>(request.TargetId));
+            if (targetNode is null) return BadRequest(new { message = "TargetId does not point to a valid node." });
+
+            existing.Name = request.Name;
+            existing.Condition = request.Condition;
+            existing.TargetId = request.TargetId;
+            // NodeId (source) is intentionally NOT updatable
+            var result = await _mediator.Send(new UpdateGenericCommand<Edge>(existing));
             return Ok(_mapper.Map<EdgeDto>(result));
         }
     }

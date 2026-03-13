@@ -1,11 +1,13 @@
 using AutoMapper;
 using Domain.Commands;
 using Domain.DTOs;
+using Domain.DTOs.Requests;
 using Domain.Models;
 using Domain.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using API.Helpers;
 
 namespace API.Controllers
 {
@@ -43,11 +45,30 @@ namespace API.Controllers
         }
 
         [HttpPut("{id:guid}")]
-        public override async Task<IActionResult> Update(Guid id, [FromBody] User entity)
+        public new async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserRequest request)
         {
-            entity.Id = id;
-            var result = await _mediator.Send(new UpdateGenericCommand<User>(entity));
+            var existing = await _mediator.Send(new GetGenericQuery<User>(id));
+            if (existing is null) return NotFound(new { message = $"User '{id}' not found." });
+
+            existing.FullName = request.FullName;
+            existing.Email = request.Email;
+
+            var result = await _mediator.Send(new UpdateGenericCommand<User>(existing));
             return Ok(_mapper.Map<UserDto>(result));
+        }
+
+        /// <summary>Change user password</summary>
+        [HttpPatch("{id:guid}/password")]
+        public async Task<IActionResult> ChangePassword(Guid id, [FromBody] ChangePasswordRequest request)
+        {
+            var existing = await _mediator.Send(new GetGenericQuery<User>(id));
+            if (existing is null) return NotFound();
+            if (!PasswordHelper.VerifyPassword(request.CurrentPassword, existing.PasswordHash))
+                return Unauthorized(new { message = "Current password is incorrect." });
+
+            existing.PasswordHash = PasswordHelper.HashPassword(request.NewPassword);
+            await _mediator.Send(new UpdateGenericCommand<User>(existing));
+            return NoContent();
         }
 
         /// <summary>Get all roles for a user</summary>

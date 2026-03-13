@@ -45,7 +45,7 @@ namespace API.Controllers
 
         /// <summary>Update an existing record</summary>
         [HttpPut("{id:guid}")]
-        public virtual async Task<IActionResult> Update(Guid id, [FromBody] T entity)
+        public async Task<IActionResult> Update(Guid id, [FromBody] T entity)
         {
             entity.Id = id;
             var result = await _mediator.Send(new UpdateGenericCommand<T>(entity));

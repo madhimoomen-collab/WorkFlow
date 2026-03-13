@@ -10,6 +10,7 @@ using Domain.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using API.Helpers;
 
 namespace API.Controllers
 {
@@ -43,7 +44,7 @@ namespace API.Controllers
                 Id = Guid.NewGuid(),
                 FullName = request.FullName,
                 Email = request.Email,
-                PasswordHash = HashPassword(request.Password)
+                PasswordHash = PasswordHelper.HashPassword(request.Password)
             };
 
             var result = await _mediator.Send(new AddGenericCommand<User>(user));
@@ -58,31 +59,10 @@ namespace API.Controllers
             var user = await _mediator.Send(new GetGenericQuery<User>(
                 condition: u => u.Email == request.Email && !u.IsDeleted
             ));
-            if (user is null || !VerifyPassword(request.Password, user.PasswordHash))
+            if (user is null || !PasswordHelper.VerifyPassword(request.Password, user.PasswordHash))
                 return Unauthorized(new { message = "Invalid email or password." });
 
             return Ok(new { token = GenerateToken(user) });
-        }
-
-        private static string HashPassword(string password)
-        {
-            byte[] salt = RandomNumberGenerator.GetBytes(16);
-            byte[] hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, 100_000, HashAlgorithmName.SHA256, 32);
-            byte[] combined = new byte[salt.Length + hash.Length];
-            Buffer.BlockCopy(salt, 0, combined, 0, salt.Length);
-            Buffer.BlockCopy(hash, 0, combined, salt.Length, hash.Length);
-            return Convert.ToBase64String(combined);
-        }
-
-        private static bool VerifyPassword(string password, string storedHash)
-        {
-            byte[] combined = Convert.FromBase64String(storedHash);
-            byte[] salt = new byte[16];
-            byte[] storedHashBytes = new byte[combined.Length - 16];
-            Buffer.BlockCopy(combined, 0, salt, 0, 16);
-            Buffer.BlockCopy(combined, 16, storedHashBytes, 0, storedHashBytes.Length);
-            byte[] computedHash = Rfc2898DeriveBytes.Pbkdf2(password, salt, 100_000, HashAlgorithmName.SHA256, 32);
-            return CryptographicOperations.FixedTimeEquals(computedHash, storedHashBytes);
         }
 
         private string GenerateToken(User user)

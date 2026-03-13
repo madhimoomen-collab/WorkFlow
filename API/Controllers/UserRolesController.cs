@@ -42,7 +42,7 @@ namespace API.Controllers
         }
 
         [HttpPut("{id:guid}")]
-        public override async Task<IActionResult> Update(Guid id, [FromBody] UserRole entity)
+        public new async Task<IActionResult> Update(Guid id, [FromBody] UserRole entity)
         {
             entity.Id = id;
             var result = await _mediator.Send(new UpdateGenericCommand<UserRole>(entity));
