@@ -20,7 +20,7 @@ namespace Domain.Queries
 
         /// <summary>Convenience constructor for Guid-based ID queries</summary>
         public GetGenericQuery(Guid id)
-            : this(entity => entity.Id == id, null)
+            : this(entity => entity.Id == id && !entity.IsDeleted, null)
         {
         }
     }

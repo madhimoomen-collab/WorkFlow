@@ -35,9 +35,16 @@ namespace API.Controllers
         }
 
         [HttpPost]
-        public override async Task<IActionResult> Create([FromBody] WorkFlowInstance entity)
+        public new async Task<IActionResult> Create([FromBody] CreateWorkFlowInstanceRequest request)
         {
-            entity.Id = Guid.NewGuid();
+            var entity = new WorkFlowInstance
+            {
+                Id = Guid.NewGuid(),
+                WorkFlowDefinitionId = request.WorkFlowDefinitionId,
+                InitiatedBy = request.InitiatedBy,
+                Status = "Pending",
+                NodeId = null
+            };
             var result = await _mediator.Send(new AddGenericCommand<WorkFlowInstance>(entity));
             var dto = _mapper.Map<WorkFlowInstanceDto>(result);
             return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
@@ -122,7 +129,7 @@ namespace API.Controllers
             {
                 Id = Guid.NewGuid(),
                 WorkFlowInstanceId = instance.Id,
-                FromNodeId = instance.NodeId,
+                FromNodeId = instance.NodeId!.Value,
                 ToNodeId = edge.TargetId,
                 TransitionedAt = DateTime.UtcNow
             }));
@@ -153,5 +160,6 @@ namespace API.Controllers
         }
     }
 
+    public record CreateWorkFlowInstanceRequest(Guid WorkFlowDefinitionId, string InitiatedBy);
     public record AdvanceRequest(Guid EdgeId);
 }

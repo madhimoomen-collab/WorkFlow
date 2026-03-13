@@ -10,8 +10,8 @@ namespace Domain.Models
         public WorkFlowDefinition WorkFlowDefinition { get; set; } = null!;
 
         [ForeignKey("CurrentNode")]
-        public Guid NodeId { get; set; }
-        public Node CurrentNode { get; set; } = null!;
+        public Guid? NodeId { get; set; }
+        public Node? CurrentNode { get; set; }
 
         [Required]
         [MaxLength(50)]

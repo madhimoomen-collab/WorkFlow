@@ -53,8 +53,9 @@ namespace Data.Repositories
             if (includes != null)
                 query = includes(query);
 
-            if (predicate != null)
-                query = query.Where(predicate);
+            query = predicate != null
+                ? query.Where(predicate)
+                : query.Where(e => !e.IsDeleted);
 
             if (orderBy != null)
                 query = orderBy(query);

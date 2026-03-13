@@ -68,7 +68,8 @@ namespace Data.Context
                 .HasOne(wi => wi.CurrentNode)
                 .WithMany()
                 .HasForeignKey(wi => wi.NodeId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
 
             // WorkFlowInstanceHistory → WorkFlowInstance
             modelBuilder.Entity<WorkFlowInstanceHistory>()

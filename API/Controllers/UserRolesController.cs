@@ -40,13 +40,5 @@ namespace API.Controllers
             var dto = _mapper.Map<UserRoleDto>(result);
             return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
         }
-
-        [HttpPut("{id:guid}")]
-        public new async Task<IActionResult> Update(Guid id, [FromBody] UserRole entity)
-        {
-            entity.Id = id;
-            var result = await _mediator.Send(new UpdateGenericCommand<UserRole>(entity));
-            return Ok(_mapper.Map<UserRoleDto>(result));
-        }
     }
 }
