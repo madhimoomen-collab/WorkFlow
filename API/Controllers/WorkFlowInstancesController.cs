@@ -34,6 +34,12 @@ namespace API.Controllers
             return Ok(_mapper.Map<WorkFlowInstanceDto>(result));
         }
 
+        [NonAction]
+        public override Task<IActionResult> Create([FromBody] WorkFlowInstance entity)
+        {
+            return base.Create(entity);
+        }
+
         [HttpPost]
         public new async Task<IActionResult> Create([FromBody] CreateWorkFlowInstanceRequest request)
         {
