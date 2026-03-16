@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Models
@@ -17,7 +17,6 @@ namespace Domain.Models
 
     public class Node : BaseEntity
     {
-        [Required]
         [MaxLength(150)]
         public string Name { get; set; } = string.Empty;
 
@@ -32,7 +31,9 @@ namespace Domain.Models
 
         [ForeignKey("WorkFlowDefinition")]
         public Guid WorkFlowDefinitionId { get; set; }
-        public WorkFlowDefinition WorkFlowDefinition { get; set; } = null!;
+
+        // ✅ nullable — never sent in JSON, only the FK above is
+        public WorkFlowDefinition? WorkFlowDefinition { get; set; }
 
         public ICollection<Edge> OutgoingEdges { get; set; } = new List<Edge>();
     }
@@ -47,10 +48,14 @@ namespace Domain.Models
 
         [ForeignKey("SourceNode")]
         public Guid NodeId { get; set; }
-        public Node SourceNode { get; set; } = null!;
+
+        // ✅ nullable — never sent in JSON, only the FK above is
+        public Node? SourceNode { get; set; }
 
         [ForeignKey("TargetNode")]
         public Guid TargetId { get; set; }
-        public Node TargetNode { get; set; } = null!;
+
+        // ✅ nullable — never sent in JSON, only the FK above is
+        public Node? TargetNode { get; set; }
     }
 }

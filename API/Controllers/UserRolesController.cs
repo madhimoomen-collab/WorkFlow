@@ -1,10 +1,11 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Domain.Commands;
 using Domain.DTOs;
 using Domain.Models;
 using Domain.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Controllers
 {
@@ -20,7 +21,11 @@ namespace API.Controllers
         [HttpGet]
         public override async Task<IActionResult> GetAll()
         {
-            var result = await _mediator.Send(new GetListGenericQuery<UserRole>());
+            // ← include Role + filter out soft-deleted records
+            var result = await _mediator.Send(new GetListGenericQuery<UserRole>(
+                condition: ur => !ur.IsDeleted,
+                includes: q => q.Include(ur => ur.Role)
+            ));
             return Ok(_mapper.Map<IEnumerable<UserRoleDto>>(result));
         }
 

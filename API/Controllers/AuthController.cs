@@ -1,115 +1,250 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
-using AutoMapper;
-using Domain.Commands;
 using Domain.DTOs;
+using Domain.Interface;
 using Domain.Models;
-using Domain.Queries;
-using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 namespace API.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/auth")]
     public class AuthController : ControllerBase
     {
-        private readonly IMediator _mediator;
-        private readonly IConfiguration _configuration;
-        private readonly IMapper _mapper;
+        private readonly IGenericRepository<User> _users;
+        private readonly IGenericRepository<Role> _roles;
+        private readonly IGenericRepository<UserRole> _userRoles;
+        private readonly IConfiguration _config;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IMediator mediator, IConfiguration configuration, IMapper mapper)
+        public AuthController(
+            IGenericRepository<User> users,
+            IGenericRepository<Role> roles,
+            IGenericRepository<UserRole> userRoles,
+            IConfiguration config,
+            ILogger<AuthController> logger)
         {
-            _mediator = mediator;
-            _configuration = configuration;
-            _mapper = mapper;
+            _users = users;
+            _roles = roles;
+            _userRoles = userRoles;
+            _config = config;
+            _logger = logger;
         }
 
-        /// <summary>Register a new user</summary>
-        [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+        // ────────────────────────────────────────────────────────────────────
+        // POST api/auth/login
+        // ────────────────────────────────────────────────────────────────────
+
+        /// <summary>Authenticate and receive a JWT bearer token.</summary>
+        [HttpPost("login")]
+        [AllowAnonymous]
+        public async Task<IActionResult> Login([FromBody] LoginRequest req)
         {
-            var existing = await _mediator.Send(new GetGenericQuery<User>(
-                condition: u => u.Email == request.Email && !u.IsDeleted
-            ));
-            if (existing is not null)
-                return Conflict(new { message = "A user with this email already exists." });
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            // Find user by username (case-insensitive)
+            var user = (await _users.FindAsync(
+                predicate: u => !u.IsDeleted && u.Username.ToLower() == req.Username.ToLower(),
+                includes: q => q.Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            )).FirstOrDefault();
+
+            if (user is null)
+            {
+                _logger.LogWarning("Login failed – unknown username: {Username}", req.Username);
+                return Unauthorized(new { message = "Identifiant ou mot de passe incorrect." });
+            }
+
+            if (!BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
+            {
+                _logger.LogWarning("Login failed – wrong password for: {Username}", req.Username);
+                return Unauthorized(new { message = "Identifiant ou mot de passe incorrect." });
+            }
+
+            // Resolve primary role
+            var roleName = user.UserRoles
+                .Where(ur => !ur.IsDeleted)
+                .Select(ur => ur.Role?.RoleName)
+                .FirstOrDefault() ?? "user";
+
+            var token = BuildToken(user, roleName);
+            var expiresAt = DateTime.UtcNow.AddHours(GetTokenHours());
+
+            _logger.LogInformation("User {Username} logged in successfully.", user.Username);
+
+            return Ok(new LoginResponse
+            {
+                Token = token,
+                FullName = user.FullName,
+                Username = user.Username,
+                Role = roleName,
+                UserId = user.Id,
+                ExpiresAt = expiresAt,
+            });
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // POST api/auth/register
+        // ────────────────────────────────────────────────────────────────────
+
+        /// <summary>Create a new user account. Admin-only in production.</summary>
+        [HttpPost("register")]
+        [AllowAnonymous]            // lock down to [Authorize(Roles="admin")] after first setup
+        public async Task<IActionResult> Register([FromBody] RegisterRequest req)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            // Duplicate username check
+            var existing = (await _users.FindAsync(
+                u => !u.IsDeleted && u.Username.ToLower() == req.Username.ToLower()
+            )).Any();
+
+            if (existing)
+                return Conflict(new { message = $"L'identifiant '{req.Username}' est déjà utilisé." });
+
+            // Hash password
+            var hash = BCrypt.Net.BCrypt.HashPassword(req.Password, workFactor: 12);
 
             var user = new User
             {
-                Id = Guid.NewGuid(),
-                FullName = request.FullName,
-                Email = request.Email,
-                PasswordHash = HashPassword(request.Password)
+                FullName = req.FullName,
+                Username = req.Username.Trim(),
+                PasswordHash = hash,
             };
 
-            var result = await _mediator.Send(new AddGenericCommand<User>(user));
-            var dto = _mapper.Map<UserDto>(result);
-            return CreatedAtAction(null, new { id = dto.Id }, dto);
+            await _users.AddAsync(user);
+            await _users.SaveChangesAsync();
+
+            // Assign role
+            if (!string.IsNullOrWhiteSpace(req.RoleName))
+            {
+                var role = (await _roles.FindAsync(
+                    r => !r.IsDeleted && r.RoleName.ToLower() == req.RoleName.ToLower()
+                )).FirstOrDefault();
+
+                if (role is not null)
+                {
+                    await _userRoles.AddAsync(new UserRole { UserId = user.Id, RoleId = role.Id });
+                    await _userRoles.SaveChangesAsync();
+                }
+            }
+
+            _logger.LogInformation("New user registered: {Username}", user.Username);
+
+            return CreatedAtAction(nameof(Me), null, new RegisterResponse
+            {
+                UserId = user.Id,
+                Username = user.Username,
+                FullName = user.FullName,
+                Message = "Compte créé avec succès.",
+            });
         }
 
-        /// <summary>Login and receive a JWT token</summary>
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest request)
-        {
-            var user = await _mediator.Send(new GetGenericQuery<User>(
-                condition: u => u.Email == request.Email && !u.IsDeleted
-            ));
-            if (user is null || !VerifyPassword(request.Password, user.PasswordHash))
-                return Unauthorized(new { message = "Invalid email or password." });
+        // ────────────────────────────────────────────────────────────────────
+        // GET api/auth/me
+        // ────────────────────────────────────────────────────────────────────
 
-            return Ok(new { token = GenerateToken(user) });
+        /// <summary>Returns the currently authenticated user's profile.</summary>
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> Me()
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(idClaim, out var userId))
+                return Unauthorized();
+
+            var user = await _users.GetAsync(
+                predicate: u => u.Id == userId && !u.IsDeleted,
+                includes: q => q.Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            );
+
+            if (user is null) return NotFound();
+
+            var roleName = user.UserRoles
+                .Where(ur => !ur.IsDeleted)
+                .Select(ur => ur.Role?.RoleName)
+                .FirstOrDefault() ?? "user";
+
+            return Ok(new
+            {
+                user.Id,
+                user.FullName,
+                user.Username,
+                Role = roleName,
+                user.CreatedAt,
+            });
         }
 
-        private static string HashPassword(string password)
+        // ────────────────────────────────────────────────────────────────────
+        // PUT api/auth/change-password
+        // ────────────────────────────────────────────────────────────────────
+
+        /// <summary>Change password for the currently authenticated user.</summary>
+        [HttpPut("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest req)
         {
-            byte[] salt = RandomNumberGenerator.GetBytes(16);
-            byte[] hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, 100_000, HashAlgorithmName.SHA256, 32);
-            byte[] combined = new byte[salt.Length + hash.Length];
-            Buffer.BlockCopy(salt, 0, combined, 0, salt.Length);
-            Buffer.BlockCopy(hash, 0, combined, salt.Length, hash.Length);
-            return Convert.ToBase64String(combined);
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(idClaim, out var userId))
+                return Unauthorized();
+
+            var user = await _users.GetAsync(u => u.Id == userId && !u.IsDeleted);
+            if (user is null) return NotFound();
+
+            if (!BCrypt.Net.BCrypt.Verify(req.CurrentPassword, user.PasswordHash))
+                return BadRequest(new { message = "Mot de passe actuel incorrect." });
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword, workFactor: 12);
+            await _users.UpdateAsync(user);
+            await _users.SaveChangesAsync();
+
+            _logger.LogInformation("Password changed for user {Username}", user.Username);
+            return Ok(new { message = "Mot de passe modifié avec succès." });
         }
 
-        private static bool VerifyPassword(string password, string storedHash)
-        {
-            byte[] combined = Convert.FromBase64String(storedHash);
-            byte[] salt = new byte[16];
-            byte[] storedHashBytes = new byte[combined.Length - 16];
-            Buffer.BlockCopy(combined, 0, salt, 0, 16);
-            Buffer.BlockCopy(combined, 16, storedHashBytes, 0, storedHashBytes.Length);
-            byte[] computedHash = Rfc2898DeriveBytes.Pbkdf2(password, salt, 100_000, HashAlgorithmName.SHA256, 32);
-            return CryptographicOperations.FixedTimeEquals(computedHash, storedHashBytes);
-        }
+        // ────────────────────────────────────────────────────────────────────
+        // Helpers
+        // ────────────────────────────────────────────────────────────────────
 
-        private string GenerateToken(User user)
+        private string BuildToken(User user, string role)
         {
-            var jwtSection = _configuration.GetSection("Jwt");
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"]!));
-            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var jwtCfg = _config.GetSection("Jwt");
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtCfg["Key"]!));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var expires = DateTime.UtcNow.AddHours(GetTokenHours());
 
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim(ClaimTypes.Name, user.FullName),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name,            user.Username),
+                new Claim(ClaimTypes.GivenName,       user.FullName),
+                new Claim(ClaimTypes.Role,            role),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             };
 
             var token = new JwtSecurityToken(
-                issuer: jwtSection["Issuer"],
-                audience: jwtSection["Audience"],
+                issuer: jwtCfg["Issuer"],
+                audience: jwtCfg["Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(double.Parse(jwtSection["ExpiryMinutes"]!)),
-                signingCredentials: credentials);
+                expires: expires,
+                signingCredentials: creds
+            );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
-    }
 
-    public record RegisterRequest(string FullName, string Email, string Password);
-    public record LoginRequest(string Email, string Password);
+        private double GetTokenHours()
+        {
+            var h = _config["Jwt:ExpiresHours"];
+            return double.TryParse(h, out var v) ? v : 8;
+        }
+    }
 }
