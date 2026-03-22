@@ -32,10 +32,10 @@ namespace Domain.Models
     {
         [ForeignKey("User")]
         public Guid UserId { get; set; }
-        public User User { get; set; } = null!;
+        public User? User { get; set; }
 
         [ForeignKey("Role")]
         public Guid RoleId { get; set; }
-        public Role Role { get; set; } = null!;
+        public Role? Role { get; set; }
     }
 }

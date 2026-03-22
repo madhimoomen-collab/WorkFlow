@@ -21,7 +21,10 @@ namespace API.Controllers
         [HttpGet]
         public override async Task<IActionResult> GetAll()
         {
-            var result = await _mediator.Send(new GetListGenericQuery<WorkFlowInstance>());
+            var result = await _mediator.Send(new GetListGenericQuery<WorkFlowInstance>(
+                condition: i => !i.IsDeleted,
+                includes: q => q.Include(i => i.CurrentNode)
+            ));
             return Ok(_mapper.Map<IEnumerable<WorkFlowInstanceDto>>(result));
         }
 
@@ -85,7 +88,7 @@ namespace API.Controllers
 
             var startNodes = await _mediator.Send(new GetListGenericQuery<Node>(
                 condition: n => n.WorkFlowDefinitionId == instance.WorkFlowDefinitionId
-                             && n.Type == "Start" && !n.IsDeleted
+                             && n.Type.ToUpper() == "START" && !n.IsDeleted
             ));
             var startNode = startNodes.FirstOrDefault();
             if (startNode is null)
@@ -124,7 +127,7 @@ namespace API.Controllers
             }));
 
             instance.NodeId = edge.TargetId;
-            if (targetNode.Type == "End")
+            if (targetNode.Type.Equals("End", StringComparison.OrdinalIgnoreCase))
             {
                 instance.Status = "Completed";
                 instance.CompletedAt = DateTime.UtcNow;

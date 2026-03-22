@@ -6,15 +6,15 @@ namespace Domain.Models
     {
         [ForeignKey("WorkFlowInstance")]
         public Guid WorkFlowInstanceId { get; set; }
-        public WorkFlowInstance WorkFlowInstance { get; set; } = null!;
+        public WorkFlowInstance? WorkFlowInstance { get; set; }
 
         [ForeignKey("FromNode")]
         public Guid FromNodeId { get; set; }
-        public Node FromNode { get; set; } = null!;
+        public Node? FromNode { get; set; }
 
         [ForeignKey("ToNode")]
         public Guid ToNodeId { get; set; }
-        public Node ToNode { get; set; } = null!;
+        public Node? ToNode { get; set; }
 
         public string? Comment { get; set; }
 

@@ -1,4 +1,4 @@
-namespace Domain.DTOs
+﻿namespace Domain.DTOs
 {
     public class WorkFlowInstanceDto
     {
@@ -9,5 +9,7 @@ namespace Domain.DTOs
         public DateTime? CompletedAt { get; set; }
         public string InitiatedBy { get; set; } = string.Empty;
         public NodeDto? CurrentNode { get; set; }
+        public DateTime CreatedAt { get; set; }   // ← add this
+        public DateTime? UpdatedAt { get; set; }  // ← optional but useful
     }
 }

@@ -7,11 +7,11 @@ namespace Domain.Models
     {
         [ForeignKey("WorkFlowDefinition")]
         public Guid WorkFlowDefinitionId { get; set; }
-        public WorkFlowDefinition WorkFlowDefinition { get; set; } = null!;
+        public WorkFlowDefinition? WorkFlowDefinition { get; set; }
 
         [ForeignKey("CurrentNode")]
         public Guid NodeId { get; set; }
-        public Node CurrentNode { get; set; } = null!;
+        public Node? CurrentNode { get; set; }
 
         [Required]
         [MaxLength(50)]
