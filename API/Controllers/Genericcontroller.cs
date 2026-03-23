@@ -1,4 +1,4 @@
-using Domain.Commands;
+﻿using Domain.Commands;
 using Domain.Models;
 using Domain.Queries;
 using MediatR;

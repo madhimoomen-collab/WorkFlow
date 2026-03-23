@@ -9,6 +9,13 @@ namespace Domain.Models
         [MaxLength(200)]
         public string FullName { get; set; } = string.Empty;
 
+        [Required]
+        [MaxLength(100)]
+        public string Username { get; set; } = string.Empty;
+
+        [Required]
+        public string PasswordHash { get; set; } = string.Empty;
+
         public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     }
 
@@ -25,10 +32,10 @@ namespace Domain.Models
     {
         [ForeignKey("User")]
         public Guid UserId { get; set; }
-        public User User { get; set; } = null!;
+        public User? User { get; set; }
 
         [ForeignKey("Role")]
         public Guid RoleId { get; set; }
-        public Role Role { get; set; } = null!;
+        public Role? Role { get; set; }
     }
 }

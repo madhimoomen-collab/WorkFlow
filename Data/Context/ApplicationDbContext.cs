@@ -15,6 +15,7 @@ namespace Data.Context
         public DbSet<Node> Nodes { get; set; } = null!;
         public DbSet<Edge> Edges { get; set; } = null!;
         public DbSet<WorkFlowInstance> WorkFlowInstances { get; set; } = null!;
+        public DbSet<WorkFlowInstanceHistory> WorkFlowInstanceHistories { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -67,6 +68,27 @@ namespace Data.Context
                 .HasOne(wi => wi.CurrentNode)
                 .WithMany()
                 .HasForeignKey(wi => wi.NodeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // WorkFlowInstanceHistory → WorkFlowInstance
+            modelBuilder.Entity<WorkFlowInstanceHistory>()
+                .HasOne(h => h.WorkFlowInstance)
+                .WithMany()
+                .HasForeignKey(h => h.WorkFlowInstanceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // WorkFlowInstanceHistory → FromNode
+            modelBuilder.Entity<WorkFlowInstanceHistory>()
+                .HasOne(h => h.FromNode)
+                .WithMany()
+                .HasForeignKey(h => h.FromNodeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // WorkFlowInstanceHistory → ToNode
+            modelBuilder.Entity<WorkFlowInstanceHistory>()
+                .HasOne(h => h.ToNode)
+                .WithMany()
+                .HasForeignKey(h => h.ToNodeId)
                 .OnDelete(DeleteBehavior.Restrict);
         }
     }
